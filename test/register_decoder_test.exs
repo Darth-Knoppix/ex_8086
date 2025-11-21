@@ -3,6 +3,6 @@ defmodule RegisterDecoderTest do
   doctest RegisterDecoder
 
   test "REG = 000, W = 0 -> AL" do
-    assert RegisterDecoder.decode(0, 0b000) == "AL"
+    assert RegisterDecoder.decode(0, 0b000) == "al"
   end
 end
