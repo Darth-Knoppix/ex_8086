@@ -62,10 +62,33 @@ defmodule Decoder do
   defp direction_to_atom(1), do: :from
 
   defp decode(:mov, %{direction: direction, type: type}, data) do
-    <<_mode::2, register_field_a::3, register_field_b::3, data::bitstring>> = data
+    <<mode::2, register_field_a::3, register_field_b::3, data::bitstring>> = data
 
     register_a = RegisterDecoder.decode(type, register_field_a)
-    register_b = RegisterDecoder.decode(type, register_field_b)
+
+    {register_b, data} =
+      case mode do
+        0b11 ->
+          {RegisterDecoder.decode(type, register_field_b), data}
+
+        0b00 ->
+          # TODO: Handle direct addressing
+          {AddressDecoder.decode(register_field_b) |> AddressDecoder.join_with_adder(), data}
+
+        0b01 ->
+          {value, rest} = extract_data(:byte, data)
+
+          {AddressDecoder.decode(register_field_b)
+           |> Enum.concat([value])
+           |> AddressDecoder.join_with_adder(), rest}
+
+        0b10 ->
+          {value, rest} = extract_data(:word, data)
+
+          {AddressDecoder.decode(register_field_b)
+           |> Enum.concat([value])
+           |> AddressDecoder.join_with_adder(), rest}
+      end
 
     [target, destination] =
       if direction == :to do
@@ -81,17 +104,7 @@ defmodule Decoder do
   end
 
   defp decode(:mov, %{type: type, register: register}, data) do
-    {value, data} =
-      case type do
-        :byte ->
-          <<value::8, rest::bitstring>> = data
-          {value, rest}
-
-        :word ->
-          <<low_value::8, high_value::8, rest::bitstring>> = data
-          <<combined::16>> = <<high_value, low_value>>
-          {combined, rest}
-      end
+    {value, data} = extract_data(type, data)
 
     instruction = "mov #{register}, #{value}"
 
@@ -101,5 +114,18 @@ defmodule Decoder do
   defp decode(:mov, meta, data) do
     IO.inspect(meta, label: "meta")
     {"; unknown instruction", data}
+  end
+
+  defp extract_data(size, data) do
+    case size do
+      :byte ->
+        <<value::8, rest::bitstring>> = data
+        {value, rest}
+
+      :word ->
+        <<low_value::8, high_value::8, rest::bitstring>> = data
+        <<combined::16>> = <<high_value, low_value>>
+        {combined, rest}
+    end
   end
 end

@@ -14,6 +14,15 @@ defmodule DecoderTest do
     test "16-bit immediate-to-register mov" do
       assert Decoder.read(<<0b10111010, 0b01101100, 0b00001111>>) == "mov dx, 3948\n"
     end
+
+    test "Source address calculation" do
+      assert Decoder.read(<<0b10001010, 0b00000000>>) == "mov al, [bx + si]\n"
+      assert Decoder.read(<<0b10001011, 0b01010110, 0b00000000>>) == "mov dx, [bp]\n"
+      assert Decoder.read(<<0b10001010, 0b01100000, 0b00000100>>) == "mov ah, [bx + si + 4]\n"
+
+      assert Decoder.read(<<0b10001010, 0b10000000, 0b10000111, 0b00010011>>) ==
+               "mov al, [bx + si + 4999]\n"
+    end
   end
 
   describe "multiple instructions" do
